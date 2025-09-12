@@ -8,3 +8,5 @@ lm_eval.egg-info/
 *.jsonl
 *.txt
 internal/
+datastores/
+tmp.sh

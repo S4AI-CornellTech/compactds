@@ -15,8 +15,22 @@ TODO
 
 ## Installation
 To create a conda environment `scaling` with Python 3.11:
-```python
-conda env create -f environment.yml
+- Install Miniconda
+    ```bash
+    export CONDA_DIR=/opt/conda
+    
+    wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
+
+    bash ~/miniconda.sh -b -p $CONDA_DIR
+    rm ~/miniconda.sh
+    $CONDA_DIR/bin/conda clean -afy
+
+    export PATH=$CONDA_DIR/bin:$PATH
+
+    ```
+
+```bash
+conda env create -f environment.yaml
 conda activate scaling
 huggingface-cli login --token <your_hf_token> # ignore if use custom data
 ```
@@ -83,6 +97,9 @@ python scripts/download_raw_data.py \
 #### Build vectors 
 - To build vectors for a single data source (e.g., PeS2o):
 ```bash
+export BEAKER_REPLICA_COUNT=1 # Adjust according to your hardware
+export BEAKER_REPLICA_RANK=0 # Adjust according to your hardware
+
 python -m src.main_ric \
     --config-name pes2o \
     tasks.datastore.embedding=true \
