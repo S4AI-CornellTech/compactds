@@ -7,7 +7,7 @@ def main(args):
     api = HfApi()
     os.makedirs(args.output_path, exist_ok=True)
     if args.subfolder_path is None:
-        api.dataset_download(
+        api.snapshot_download(
             repo_id=args.dataset_name,
             repo_type="dataset",
             local_dir=args.output_path,
