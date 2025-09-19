@@ -288,7 +288,11 @@ def generate_passage_embeddings(cfg):
         start_list = range(0,len(partition_file_paths),num_files)
         num_shards = len(start_list)
 
-        for shard_id, shard_start in enumerate(start_list):
+        start_shard = int(os.environ.get("START_SHARD", "0"))
+        end_shard_inclusive = os.environ.get("END_SHARD")
+        end_shard_inclusive = int(end_shard_inclusive) if end_shard_inclusive is not None else (num_shards - 1)
+
+        for shard_id, shard_start in list(enumerate(start_list))[start_shard:end_shard_inclusive+1]:
             print(f"Processing EMBEDDING SHARD {shard_id} out of {num_shards} shards (for worker {rank})")
             embedding_shard_save_path = os.path.join(args.embedding_dir, args.prefix + f"{rank}_{shard_id:02d}.pkl")
             

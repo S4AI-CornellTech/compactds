@@ -99,8 +99,7 @@ python scripts/download_raw_data.py \
 ```bash
 export BEAKER_REPLICA_COUNT=1 # Adjust according to your hardware
 export BEAKER_REPLICA_RANK=0 # Adjust according to your hardware
-
-python -m src.main_ric \
+START_SHARD=foo END_SHARD=bar python -m src.main_ric \
     --config-name pes2o \
     tasks.datastore.embedding=true \
     datastore.raw_data_path=raw_data/pes2o \
