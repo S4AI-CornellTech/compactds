@@ -99,11 +99,13 @@ python scripts/download_raw_data.py \
 ```bash
 export BEAKER_REPLICA_COUNT=1 # Adjust according to your hardware
 export BEAKER_REPLICA_RANK=0 # Adjust according to your hardware
+
 START_SHARD=foo END_SHARD=bar python -m src.main_ric \
     --config-name pes2o \
     tasks.datastore.embedding=true \
     datastore.raw_data_path=raw_data/pes2o \
     datastore.embedding.output_dir=datastores/pes2o
+
 ```
 - For multiple data source, build the vectors for each of them separately. Run `bash scripts/build_all_vectors.py raw_data datastores` to build vectors for all 10 downloaded CompactDS data sources from `raw_data` and save the results in `datastores`. 
 
@@ -126,15 +128,16 @@ We use [Faiss](https://github.com/facebookresearch/faiss/tree/main) to build the
 python -m src.main_ric \
     --config-name pes2o \
     tasks.datastore.index=true \
-    datastore.embedding.embedding_dir=datastores/pes2o \
-    datastore.embedding.passages_dir=datastores/pes2o/passages
+    datastore.embedding.embedding_dir=datastores/pes2o/embeddings \
+    datastore.embedding.passages_dir=datastores/pes2o/passages \
+    datastore.index.passages_embeddings='${datastore.embedding.embedding_dir}/**/*.pkl'
 ```
 #### To build the index from multiple-source vectors (e.g., full CompactDS) 
 - The vectors and passages need to be aggregated in to the same directories, which can be done by creating symbolic links for vectors from multiple data sources. 
 - To reproduce CompactDS, create symbolic links for vectors from all 10 data sources under `datastores` into `datastores/compactds`:
 ```bash
-bash create_symlink_vectors.sh datastores datastores/compactds
-bash create_symlink_passages.sh datastores datastores/compactds
+bash scripts/create_symlink_vectors.sh datastores datastores/compactds
+bash scripts/create_symlink_passages.sh datastores datastores/compactds
 ```
 
 - Now, to perform the index building:
@@ -142,7 +145,7 @@ bash create_symlink_passages.sh datastores datastores/compactds
 python -m src.main_ric \
     --config-name CompactDS \
     tasks.datastore.index=true \
-    datastore.embedding.embedding_dir=datastores/compactds \
+    datastore.embedding.embedding_dir=datastores/compactds/embeddings \
     datastore.embedding.passages_dir=datastores/compactds/passages
 ```
 

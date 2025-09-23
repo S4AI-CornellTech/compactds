@@ -24,8 +24,24 @@ def get_index_dir_and_embedding_paths(cfg, index_shard_ids=None, deprioritized_d
         index_dir = os.path.join(os.path.dirname(embedding_paths[0]), f'index_{index_type}/{index_dir_name}')
         
     else:
-        embedding_paths = glob.glob(index_args.passages_embeddings)
-        print(f"passages_embeddings: {index_args.passages_embeddings}")
+        pattern = index_args.passages_embeddings.strip()
+        print(f"passages_embeddings: {pattern}")
+
+        if any(ch in pattern for ch in "*?[]"):
+            glob_pattern = pattern
+        else:
+            glob_pattern = os.path.join(pattern.rstrip("/"), "**", "*.pkl")
+
+        candidates = glob.glob(glob_pattern, recursive=True)
+
+        embedding_paths = [
+            p for p in candidates
+            if re.search(r"passages\d+_\d+\.pkl$", os.path.basename(p))
+        ]
+
+        print(f"glob_pattern = {glob_pattern}")
+        print(f"#candidates = {len(candidates)}  #after_filter = {len(embedding_paths)}")
+        print("sample:", candidates[:3])
         # put some domains to the back
         # ["massiveds-rpj_arxiv", "massiveds-rpj_github", "massiveds-rpj_book", "lb_full"]
         deprioritized_domains_index = {domain: i+1 for i, domain in enumerate(deprioritized_domains)}
@@ -50,10 +66,17 @@ def get_index_dir_and_embedding_paths(cfg, index_shard_ids=None, deprioritized_d
 def convert_pkl_to_jsonl(passage_dir):
     if os.path.isdir(passage_dir):
         filenames = os.listdir(passage_dir)
-        pkl_files = [filename for filename in filenames if '.pkl' in filename]
+        # pkl_files = [filename for filename in filenames if '.pkl' in filename]
         jsonl_files = [filename for filename in filenames if '.jsonl' in filename]
+        pkl_files = []
+        for root, _, files in os.walk(passage_dir):
+            for fn in files:
+                if fn.endswith('.pkl'):
+                    pkl_files.append(os.path.join(root, fn))
         print (f"Found {len(pkl_files)} pkl files and {len(jsonl_files)} jsonl files under {passage_dir}")
         if len(pkl_files)<=len(jsonl_files):
+            return
+        if len(pkl_files) == 0:
             return
         print(f"Converting passages to JSONL data format: {passage_dir}")
     elif os.path.isfile(passage_dir):

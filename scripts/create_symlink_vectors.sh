@@ -13,7 +13,7 @@ input_dir=$1
 output_dir=$2
 
 # Create directories to contain the aggregated vectors 
-mkdir $output_dir/embeddings
+mkdir -p $output_dir/embeddings
 
 # Create symlinks to the vector files
 for datastore in "${datastores[@]}"; 
