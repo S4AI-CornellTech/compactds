@@ -70,6 +70,15 @@ class IVFPQIndexer(object):
             self.index = faiss.read_index(index_path)
             self.index_id_to_file_id = self.load_index_id_to_file_id()
             self.index.nprobe = self.probe
+
+            state_path = self.meta_file.replace('.faiss.meta', '.__state.json')
+            if os.path.exists(state_path):
+                with open(state_path, 'r') as f:
+                    st = json.load(f)
+                start_shard = st.get('shard_id', 0)
+                if start_shard < len(self.embed_paths):
+                    print(f"Resuming index build from shard {start_shard} ...")
+                    self.index = self._add_keys(self.index_path, self.prev_index_path if self.prev_index_path is not None else self.trained_index_path)
         
         else:
             self.index_id_to_file_id = []
@@ -127,20 +136,52 @@ class IVFPQIndexer(object):
     '''
 
     def _sample_and_train_index(self,):
+        import gc, time, pickle, numpy as np
+        from numpy.lib.format import open_memmap
+
+        target = int(self.sample_size) 
+        dim    = int(self.dimension)
+        nfiles = len(self.embed_paths)
+
+        out_path = self.trained_index_path + ".train_samples.npy"
+        mm = open_memmap(out_path, mode="w+", dtype=np.float32, shape=(target, dim))
+        print(f"Sampling up to {target} embeddings across {nfiles} files into {out_path}")
+
+        per_shard = max(1, target // nfiles)
+        write_ptr = 0
+        np.random.seed(self.random_seed)
+
         if self.sample_path is None or not os.path.exists(self.sample_path):
-            print(f"Sampling {self.sample_size} examples from {len(self.embed_paths)} files...")
-            per_shard_sample_size = self.sample_size // len(self.embed_paths)
-            all_sampled_embs = []
-            for embed_path in self.embed_paths:
+            for i, embed_path in enumerate(self.embed_paths):
+                if write_ptr >= target:
+                    break
                 print(f"Loading pickle embedding from {embed_path}...")
                 with open(embed_path, "rb") as fin:
                     _, embeddings = pickle.load(fin)
                 shard_size = len(embeddings)
-                print(f"Finished loading, sampling {per_shard_sample_size} from {shard_size} for training...")
-                random_samples = np.random.choice(np.arange(shard_size), size=[min(per_shard_sample_size, shard_size)], replace=False)
-                sampled_embs = embeddings[random_samples]
-                all_sampled_embs.extend(sampled_embs)
-            all_sampled_embs = np.stack(all_sampled_embs).astype(np.float32)
+
+                remaining = target - write_ptr
+                take = min(per_shard, shard_size, remaining)
+                if take <= 0:
+                    del embeddings; gc.collect()
+                    continue  
+
+                print(f"Finished loading, sampling {take} from {shard_size} for training...")
+                idx = np.random.choice(shard_size, size=take, replace=False)
+
+                chunk = np.asarray(embeddings, dtype=np.float32, order="C")[idx]
+                end = write_ptr + len(chunk)
+                mm[write_ptr:end] = chunk
+                write_ptr = end
+                mm.flush()
+
+                del embeddings, idx, chunk
+                gc.collect()
+
+            actual_n = write_ptr
+            print(f"Sampled {actual_n} embeddings (target={target}). Saved to {out_path}")
+
+            all_sampled_embs = np.ascontiguousarray(mm[:actual_n], dtype=np.float32)
         else:
             print(f"Loading sampled embeddings from {self.sample_path}...")
             with open(self.sample_path, "rb") as fin:
@@ -148,7 +189,7 @@ class IVFPQIndexer(object):
                 all_sampled_embs = pickle.load(fin)
                 end_time = time.time()
             print(f"Finished loading sampled embeddings in {end_time - start_time:.2f} seconds.")
-        print(f"Sampled {len(all_sampled_embs)} embeddings for training...")
+            print(f"Sampled {len(all_sampled_embs)} embeddings for training...")
         
         print ("Training index...")
         start_time = time.time()
@@ -187,13 +228,27 @@ class IVFPQIndexer(object):
         faiss.write_index(start_index, trained_index_path)
 
     def _add_keys(self, index_path, trained_index_path):
-        index = faiss.read_index(trained_index_path)
-        assert index.is_trained and index.ntotal == 0
+        import os
+        state_path = self.meta_file.replace('.faiss.meta', '.__state.json')
+
+        if os.path.exists(index_path) and os.path.exists(self.meta_file) and os.path.exists(state_path):
+            index = faiss.read_index(index_path)
+            self.index_id_to_file_id = self.load_index_id_to_file_id().tolist()
+            with open(state_path, 'r') as f:
+                st = json.load(f)
+            start_shard = st.get('shard_id', 0)
+            start_offset = st.get('offset', 0)
+        else:
+            index = faiss.read_index(trained_index_path)
+            assert index.is_trained and index.ntotal == 0
+            self.index_id_to_file_id = []
+            start_shard, start_offset = 0, 0
         
         start_time = time.time()
         prev_domain = None
         # NOTE: the shard id is a absolute id defined in the name
-        for shard_id, embed_path in enumerate(self.embed_paths):
+        SAVE_SHARDS = {700,750,800,850,900}  # set to None to save all shards
+        for shard_id, embed_path in enumerate(self.embed_paths[start_shard:], start_shard):
             '''
             filename = os.path.basename(embed_path)
             match = re.search(r"passages(\d+)\.pkl", filename)
@@ -215,20 +270,48 @@ class IVFPQIndexer(object):
 
             with open(embed_path, "rb") as fin:
                 _, to_add = pickle.load(fin)
-            index.add(to_add)
-            file_ids_to_add = [shard_id] * len(to_add)
-            self.index_id_to_file_id.extend(file_ids_to_add)
+
+            to_add = np.ascontiguousarray(np.asarray(to_add, dtype=np.float32))
+            bs = int(self.num_keys_to_add_at_a_time)
+            n = to_add.shape[0]
+            for s in range(0, n, bs):
+                e = min(s + bs, n)
+                index.add(to_add[s:e])
+                self.index_id_to_file_id.extend([shard_id] * (e - s))
+            del to_add
+            import gc; gc.collect()
+
             print ('Added %d / %d shards, (%d min)' % (shard_id+1, len(self.embed_paths), (time.time()-start_time)/60))
             with open(self.meta_file.replace('.faiss.meta', f'_.log'), 'w') as fout:
                 fout.write(f"Added {shard_id+1} / {len(self.embed_paths)} shards, ({(time.time()-start_time)/60} min)\n")
+            if (SAVE_SHARDS is None) or (shard_id in SAVE_SHARDS):
+                tmp_idx  = index_path + ".tmp"
+                tmp_meta = self.meta_file + ".tmp"
+                faiss.write_index(index, tmp_idx)
+                with open(tmp_meta, 'wb') as fout:
+                    np.save(fout, np.array(self.index_id_to_file_id, dtype=np.int32))
+                os.replace(tmp_idx, index_path)
+                os.replace(tmp_meta, self.meta_file)
+
+                with open(state_path, 'w') as f:
+                    json.dump({"shard_id": shard_id + 1, "offset": 0}, f)
         
         print("Writing final index...")
-        faiss.write_index(index, index_path)
+        tmp_idx  = index_path + ".tmp"
+        tmp_meta = self.meta_file + ".tmp"
+        faiss.write_index(index, tmp_idx)
+        with open(tmp_meta, 'wb') as fout:
+            np.save(fout, np.array(self.index_id_to_file_id, dtype=np.int32))
+            try:
+                import os
+                fout.flush()
+                os.fsync(fout.fileno())
+            except Exception:
+                pass
+
+        os.replace(tmp_idx, index_path)
+        os.replace(tmp_meta, self.meta_file)
         print(f"Final index written to {index_path}")
-        
-        # faiss.write_index(index, index_path)
-        with open(self.meta_file, 'wb') as fout:
-            np.save(fout, np.array(self.index_id_to_file_id))
         print ('Adding took {} s'.format(time.time() - start_time))
         return index
         # return None
