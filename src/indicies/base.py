@@ -18,7 +18,9 @@ class Indexer(object):
         
         passage_dir = self.cfg.datastore.embedding.passages_dir
         deprioritized_domains = self.args.get('deprioritized_domains', [])
-        index_dir, embedding_paths = get_index_dir_and_embedding_paths(cfg, deprioritized_domains=deprioritized_domains)
+        # index_dir, embedding_paths = get_index_dir_and_embedding_paths(cfg, deprioritized_domains=deprioritized_domains)
+        index_dir = "datastores/compactds/embeddings/index_IVFPQ"
+        embedding_paths = ["datastores/compactds/embeddings/index_IVFPQ"] 
         os.makedirs(index_dir, exist_ok=True)
         # logging.info(f"Indexing for passages: {embedding_paths}")
         if "IVF" in self.index_type:

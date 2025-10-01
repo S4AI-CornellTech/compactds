@@ -67,7 +67,7 @@ class IVFPQIndexer(object):
 
         if os.path.exists(index_path) and os.path.exists(self.meta_file):
             print("Loading index...")
-            self.index = faiss.read_index(index_path)
+            self.index = faiss.read_index(index_path, faiss.IO_FLAG_MMAP)
             self.index_id_to_file_id = self.load_index_id_to_file_id()
             self.index.nprobe = self.probe
         
