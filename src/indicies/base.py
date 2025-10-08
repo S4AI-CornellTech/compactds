@@ -19,8 +19,8 @@ class Indexer(object):
         passage_dir = self.cfg.datastore.embedding.passages_dir
         deprioritized_domains = self.args.get('deprioritized_domains', [])
         # index_dir, embedding_paths = get_index_dir_and_embedding_paths(cfg, deprioritized_domains=deprioritized_domains)
-        index_dir = "datastores/compactds/embeddings/index_IVFPQ"
-        embedding_paths = ["datastores/compactds/embeddings/index_IVFPQ"] 
+        index_dir = "/share5/akiho.kawada/compactds/datastores/compactds/embeddings/index_IVFPQ/"
+        embedding_paths = ["/share5/akiho.kawada/compactds/datastores/compactds/embeddings/index_IVFPQ/"] 
         os.makedirs(index_dir, exist_ok=True)
         # logging.info(f"Indexing for passages: {embedding_paths}")
         if "IVF" in self.index_type:
@@ -31,9 +31,11 @@ class Indexer(object):
         else:
             formatted_index_name = f"index_{self.index_type}.faiss"
         index_path = os.path.join(index_dir, formatted_index_name)
-        meta_file = os.path.join(index_dir, formatted_index_name+'.meta')
-        pos_array_save_path = os.path.join(index_dir, 'passage_pos_id_array.npy')
-        passage_filenames_save_path = os.path.join(index_dir, 'passage_filenames.npy')
+        index_path = "/share5/akiho.kawada/compactds/datastores/compactds/embeddings/index_IVFPQ/index_IVFPQ.100000000.768.65536.256.s480_e959.faiss"
+        # meta_file = os.path.join(index_dir, formatted_index_name+'.meta')
+        meta_file = "/share5/akiho.kawada/compactds/datastores/compactds/embeddings/index_IVFPQ/index_IVFPQ.100000000.768.65536.256.faiss.s480_e959.meta"
+        pos_array_save_path = "/share5/akiho.kawada/compactds/datastores/compactds/embeddings/index_IVFPQ/passage_pos_id_array.s480_e959.npy"
+        passage_filenames_save_path = "/share5/akiho.kawada/compactds/datastores/compactds/embeddings/index_IVFPQ/passage_filenames.s480_e959.npy"
 
         sample_train_path = self.args.sample_train_path if "sample_train_path" in self.args else None
         save_intermediate_index = self.args.save_intermediate_index if "save_intermediate_index" in self.args else False

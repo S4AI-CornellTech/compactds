@@ -64,6 +64,8 @@ class IVFPQIndexer(object):
         self.random_seed = 1234
 
         np.random.seed(self.random_seed)
+        print("os.path.exists(index_path) ", os.path.exists(index_path) )
+        print("os.path.exists(self.meta_file)", os.path.exists(self.meta_file))
 
         if os.path.exists(index_path) and os.path.exists(self.meta_file):
             print("Loading index...")
@@ -245,8 +247,10 @@ class IVFPQIndexer(object):
                 psg_pos_id_array = np.load(f)
             with open(self.passage_filenames_save_path, 'rb') as f:
                 passage_filenames = np.load(f, allow_pickle=True)
+            print(f"Loaded passage position array from {self.pos_array_save_path} and filenames from {self.passage_filenames_save_path}")
         else:
             psg_pos_id_array, passage_filenames = self.build_passage_pos_id_array()
+        print("passage_filenames example:", passage_filenames[:5])
         return psg_pos_id_array, passage_filenames
 
     def _get_passage(self, index_id):
