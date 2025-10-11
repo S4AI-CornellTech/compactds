@@ -39,7 +39,37 @@ class IVFPQIndexer(object):
                 DSTORE_SIZE_BATCH=51200000,
                 n_subquantizers=16,
                 code_size=8,
+                start_shard=None,
+                end_shard=None,  
                 ):
+        
+        def _with_range_suffix(path, s, e):
+            if s is None and e is None:
+                return path
+            root, ext = os.path.splitext(path)
+            if e is None:
+                return f"{root}.s{s}_eX{ext}"
+            return f"{root}.s{s}_e{e-1}{ext}"  # end is exclusive, so we denote e-1 in the filename
+        
+        self.manual_start = 0
+        self.manual_end   = 6
+        self._all_embed_paths = list(embed_paths)
+        if self.manual_start is not None or self.manual_end is not None:
+            print(f"Using manual range for shards: start={self.manual_start}, end={self.manual_end}")
+            s = 0 if self.manual_start is None else self.manual_start
+            e = len(self._all_embed_paths) if self.manual_end is None else self.manual_end
+            embed_paths = self._all_embed_paths[s:e]
+            index_path           = _with_range_suffix(index_path, s, e)
+            meta_file            = _with_range_suffix(meta_file, s, e)
+            # trained_index_path   = _with_range_suffix(trained_index_path, s, e)
+            print(f"Index path: {index_path}")
+            print(f"Meta file: {meta_file}")
+            print(f"Trained index path: {trained_index_path}")
+        
+        if pos_array_save_path is not None:
+            pos_array_save_path = _with_range_suffix(pos_array_save_path, s, e)
+        if passage_filenames_save_path is not None:
+            passage_filenames_save_path = _with_range_suffix(passage_filenames_save_path, s, e)
     
         self.embed_paths = embed_paths  # list of paths where saved the embedding of all shards
         self.index_path = index_path  # path to store the final index
@@ -71,7 +101,8 @@ class IVFPQIndexer(object):
             self.index_id_to_file_id = self.load_index_id_to_file_id()
             self.index.nprobe = self.probe
 
-            state_path = self.meta_file.replace('.faiss.meta', '.__state.json')
+            state_path = self.meta_file.replace('.meta', '.__state.json')
+            print(f"State path: {state_path}")
             if os.path.exists(state_path):
                 with open(state_path, 'r') as f:
                     st = json.load(f)

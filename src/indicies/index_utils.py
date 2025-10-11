@@ -111,7 +111,7 @@ def convert_pkl_to_jsonl(passage_dir):
                 f.write('\n')
     print("All pickle files have been converted to JSONL files.")
 
-def get_passage_pos_ids(passage_dir, pos_array_save_path, filenames_save_path, deprioritized_domains=[]):
+def get_passage_pos_ids(passage_dir, pos_array_save_path, filenames_save_path, deprioritized_domains=[], start_shard=None, end_shard=None):
     if os.path.isdir(passage_dir):
         print(f"Generating id2pos for {passage_dir}")
         filenames = os.listdir(passage_dir)
@@ -130,6 +130,13 @@ def get_passage_pos_ids(passage_dir, pos_array_save_path, filenames_save_path, d
         jsonl_files = sorted(
             jsonl_files,
             key=sort_func)
+
+        if start_shard is not None or end_shard is not None:
+            s = 0 if start_shard is None else start_shard
+            e = len(jsonl_files) if end_shard is None else end_shard
+            jsonl_files = jsonl_files[s:e]
+            print(f"Using shard range: [{s}, {e}) → {len(jsonl_files)} files")
+
         print("DEBUG: Sorted JSONL files:")
         print("\n".join(jsonl_files))
 
