@@ -269,7 +269,7 @@ class IVFPQIndexer(object):
         state_path = self.meta_file.replace('.meta', '.__state.json')
 
         print(f"Loading shuffled IDs from {self.shuffled_ids_path}...")
-        shuffled_ids = np.load(self.shuffled_ids_path, mmap_mode='r')
+        shuffled_ids = np.load(self.shuffled_ids_path)
 
         if os.path.exists(index_path) and os.path.exists(self.meta_file) and os.path.exists(state_path):
             index = faiss.read_index(index_path)
@@ -310,19 +310,24 @@ class IVFPQIndexer(object):
             #         print ('Adding took {} s'.format(time.time() - start_time))
             #     prev_domain = domain
 
+            t0 = time.time()
             with open(embed_path, "rb") as fin:
                 _, to_add = pickle.load(fin)
+            t1 = time.time()
 
             to_add = np.ascontiguousarray(np.asarray(to_add, dtype=np.float32))
             n = to_add.shape[0]
 
             ids_for_this_shard = shuffled_ids[global_offset : global_offset + n]
+            t2 = time.time()
 
             bs = int(self.num_keys_to_add_at_a_time)
             for s in range(0, n, bs):
                 e = min(s + bs, n)
 
                 index.add_with_ids(to_add[s:e], ids_for_this_shard[s:e])
+            t3 = time.time()
+            print(f"Shard {shard_id}: Load pkl={t1-t0:.2f}s, Slice IDs={t2-t1:.2f}s, Add to Faiss={t3-t2:.2f}s")
 
             #     for i in range(s, e):
             #         custom_id = ids_for_this_shard[i]
