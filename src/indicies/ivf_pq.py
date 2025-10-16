@@ -319,9 +319,10 @@ class IVFPQIndexer(object):
             ids_for_this_shard = shuffled_ids[global_offset : global_offset + n]
 
             bs = int(self.num_keys_to_add_at_a_time)
-            # for s in range(0, n, bs):
-            #     e = min(s + bs, n)
-            #     index.add_with_ids(to_add[s:e], ids_for_this_shard[s:e])
+            for s in range(0, n, bs):
+                e = min(s + bs, n)
+
+                index.add_with_ids(to_add[s:e], ids_for_this_shard[s:e])
 
             #     for i in range(s, e):
             #         custom_id = ids_for_this_shard[i]
