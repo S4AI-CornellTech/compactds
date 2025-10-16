@@ -19,6 +19,7 @@ class Indexer(object):
         passage_dir = self.cfg.datastore.embedding.passages_dir
         deprioritized_domains = self.args.get('deprioritized_domains', [])
         index_dir, embedding_paths = get_index_dir_and_embedding_paths(cfg, deprioritized_domains=deprioritized_domains)
+        index_dir = "/share/akiho.kawada/compactds/"
         os.makedirs(index_dir, exist_ok=True)
         # logging.info(f"Indexing for passages: {embedding_paths}")
         if "IVF" in self.index_type:
@@ -26,6 +27,7 @@ class Indexer(object):
             if "PQ" in self.index_type:
                 formatted_index_name = formatted_index_name.replace(".faiss", f".{self.args.n_subquantizers}.faiss")
             trained_index_path = os.path.join(index_dir, formatted_index_name+'.trained')
+            trained_index_path = "/share5/akiho.kawada/compactds/datastores/compactds/embeddings/index_IVFPQ/index_IVFPQ.100000000.768.65536.256.faiss.trained"
         else:
             formatted_index_name = f"index_{self.index_type}.faiss"
         index_path = os.path.join(index_dir, formatted_index_name)
@@ -62,11 +64,13 @@ class Indexer(object):
                 probe=self.args.probe,
             )
         elif self.index_type == "IVFPQ":
+            shuffled_ids_path = "shuffled_ids_0_479.npy"
             self.datastore = IVFPQIndexer(
                 embed_paths=embedding_paths,
                 index_path=index_path,
                 meta_file=meta_file,
                 trained_index_path=trained_index_path,
+                shuffled_ids_path=shuffled_ids_path,
                 passage_dir=passage_dir,
                 deprioritized_domains=deprioritized_domains,
                 pos_array_save_path=pos_array_save_path,

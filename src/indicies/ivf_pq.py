@@ -23,6 +23,7 @@ class IVFPQIndexer(object):
                 index_path,
                 meta_file,
                 trained_index_path,
+                shuffled_ids_path,
                 deprioritized_domains=[],
                 passage_dir=None,
                 pos_array_save_path=None,
@@ -42,6 +43,7 @@ class IVFPQIndexer(object):
                 start_shard=None,
                 end_shard=None,  
                 ):
+        s = None; e = None
         
         def _with_range_suffix(path, s, e):
             if s is None and e is None:
@@ -52,7 +54,7 @@ class IVFPQIndexer(object):
             return f"{root}.s{s}_e{e-1}{ext}"  # end is exclusive, so we denote e-1 in the filename
         
         self.manual_start = 0
-        self.manual_end   = 6
+        self.manual_end   = 480
         self._all_embed_paths = list(embed_paths)
         if self.manual_start is not None or self.manual_end is not None:
             print(f"Using manual range for shards: start={self.manual_start}, end={self.manual_end}")
@@ -66,9 +68,9 @@ class IVFPQIndexer(object):
             print(f"Meta file: {meta_file}")
             print(f"Trained index path: {trained_index_path}")
         
-        if pos_array_save_path is not None:
+        if pos_array_save_path is not None and s is not None:
             pos_array_save_path = _with_range_suffix(pos_array_save_path, s, e)
-        if passage_filenames_save_path is not None:
+        if passage_filenames_save_path is not None and s is not None:
             passage_filenames_save_path = _with_range_suffix(passage_filenames_save_path, s, e)
     
         self.embed_paths = embed_paths  # list of paths where saved the embedding of all shards
@@ -81,6 +83,8 @@ class IVFPQIndexer(object):
         self.deprioritized_domains = deprioritized_domains
         self.pos_array_save_path = pos_array_save_path
         self.passage_filenames_save_path = passage_filenames_save_path
+        self.shuffled_ids_path = shuffled_ids_path
+        self.custom_id_to_metadata = {}
         self.cuda = False
 
         self.sample_size = sample_train_size
@@ -98,7 +102,6 @@ class IVFPQIndexer(object):
         if os.path.exists(index_path) and os.path.exists(self.meta_file):
             print("Loading index...")
             self.index = faiss.read_index(index_path)
-            self.index_id_to_file_id = self.load_index_id_to_file_id()
             self.index.nprobe = self.probe
 
             state_path = self.meta_file.replace('.meta', '.__state.json')
@@ -112,7 +115,6 @@ class IVFPQIndexer(object):
                     self.index = self._add_keys(self.index_path, self.prev_index_path if self.prev_index_path is not None else self.trained_index_path)
         
         else:
-            self.index_id_to_file_id = []
             if not os.path.exists(self.trained_index_path):
                 print ("Training index...")
                 self._sample_and_train_index()
@@ -120,19 +122,20 @@ class IVFPQIndexer(object):
             print ("Building index...")
             self.index = self._add_keys(self.index_path, self.prev_index_path if self.prev_index_path is not None else self.trained_index_path)
         
-        if self.pos_array_save_path is not None:
-            self.psg_pos_id_array, self.passage_filenames = self.load_psg_pos_id_array()
+        # if self.pos_array_save_path is not None:
+        #     self.psg_pos_id_array, self.passage_filenames = self.load_psg_pos_id_array()
 
         print ("index:", self.index)
         print (self.index.ntotal)
-        print(f"DEBUG: length of index_id_to_file_id: {len(self.index_id_to_file_id)}")
-        print(f"DEBUG: length of psg_pos_id_array: {len(self.psg_pos_id_array) if hasattr(self, 'psg_pos_id_array') else 'N/A'}")
-        print(f"DEBUG: length of passage_filenames: {len(self.passage_filenames) if hasattr(self, 'passage_filenames') else 'N/A'}")
+        print(f"DEBUG: length of custom_id_to_metadata: {len(self.custom_id_to_metadata)}")
+        # print(f"DEBUG: length of index_id_to_file_id: {len(self.index_id_to_file_id)}")
+        # print(f"DEBUG: length of psg_pos_id_array: {len(self.psg_pos_id_array) if hasattr(self, 'psg_pos_id_array') else 'N/A'}")
+        # print(f"DEBUG: length of passage_filenames: {len(self.passage_filenames) if hasattr(self, 'passage_filenames') else 'N/A'}")
     
     def load_index_id_to_file_id(self,):
         with open(self.meta_file, "rb") as reader:
-            index_id_to_file_id = np.load(reader)
-        return index_id_to_file_id
+            custom_id_to_shard_id = pickle.load(reader)
+        return custom_id_to_shard_id
 
     '''
     def load_embeds(self, shard_id=None):
@@ -229,18 +232,21 @@ class IVFPQIndexer(object):
 
     def _train_index(self, sampled_embs, trained_index_path):
         quantizer = faiss.IndexFlatIP(self.dimension)
-        start_index = faiss.IndexIVFPQ(quantizer,
+        base_index = faiss.IndexIVFPQ(quantizer,
                                        self.dimension,
                                        self.ncentroids,
                                        self.n_subquantizers,
                                        self.code_size,
                                        faiss.METRIC_INNER_PRODUCT
                                        )
-        start_index.nprobe = self.probe
+        base_index.nprobe = self.probe
+
+        start_index = faiss.IndexIDMap(base_index)
+
         np.random.seed(self.random_seed)
 
-        start_index.cp.seed = self.random_seed
-        start_index.pq.cp.seed = self.random_seed 
+        base_index.cp.seed = self.random_seed
+        base_index.pq.cp.seed = self.random_seed
 
         if self.cuda:
             # Convert to GPU index
@@ -260,20 +266,25 @@ class IVFPQIndexer(object):
 
     def _add_keys(self, index_path, trained_index_path):
         import os
-        state_path = self.meta_file.replace('.faiss.meta', '.__state.json')
+        state_path = self.meta_file.replace('.meta', '.__state.json')
+
+        print(f"Loading shuffled IDs from {self.shuffled_ids_path}...")
+        shuffled_ids = np.load(self.shuffled_ids_path, mmap_mode='r')
 
         if os.path.exists(index_path) and os.path.exists(self.meta_file) and os.path.exists(state_path):
             index = faiss.read_index(index_path)
-            self.index_id_to_file_id = self.load_index_id_to_file_id().tolist()
+            with open(self.meta_file, "rb") as reader:
+                self.custom_id_to_metadata = pickle.load(reader)
+
             with open(state_path, 'r') as f:
                 st = json.load(f)
             start_shard = st.get('shard_id', 0)
-            start_offset = st.get('offset', 0)
+            global_offset = index.ntotal
         else:
             index = faiss.read_index(trained_index_path)
             assert index.is_trained and index.ntotal == 0
-            self.index_id_to_file_id = []
-            start_shard, start_offset = 0, 0
+            self.custom_id_to_metadata = {}
+            start_shard, global_offset = 0, 0
         
         start_time = time.time()
         prev_domain = None
@@ -303,24 +314,33 @@ class IVFPQIndexer(object):
                 _, to_add = pickle.load(fin)
 
             to_add = np.ascontiguousarray(np.asarray(to_add, dtype=np.float32))
-            bs = int(self.num_keys_to_add_at_a_time)
             n = to_add.shape[0]
+
+            ids_for_this_shard = shuffled_ids[global_offset : global_offset + n]
+
+            bs = int(self.num_keys_to_add_at_a_time)
             for s in range(0, n, bs):
                 e = min(s + bs, n)
-                index.add(to_add[s:e])
-                self.index_id_to_file_id.extend([shard_id] * (e - s))
+                index.add_with_ids(to_add[s:e], ids_for_this_shard[s:e])
+
+                for i in range(s, e):
+                    custom_id = ids_for_this_shard[i]
+                    self.custom_id_to_metadata[int(custom_id)] = (shard_id, i)
+            
+            global_offset += n
+            
             del to_add
             import gc; gc.collect()
 
             print ('Added %d / %d shards, (%d min)' % (shard_id+1, len(self.embed_paths), (time.time()-start_time)/60))
             with open(self.meta_file.replace('.faiss.meta', f'_.log'), 'w') as fout:
                 fout.write(f"Added {shard_id+1} / {len(self.embed_paths)} shards, ({(time.time()-start_time)/60} min)\n")
-            if (SAVE_SHARDS is None) or (shard_id in SAVE_SHARDS):
+            if shard_id in SAVE_SHARDS:
                 tmp_idx  = index_path + ".tmp"
                 tmp_meta = self.meta_file + ".tmp"
                 faiss.write_index(index, tmp_idx)
                 with open(tmp_meta, 'wb') as fout:
-                    np.save(fout, np.array(self.index_id_to_file_id, dtype=np.int32))
+                    pickle.dump(self.custom_id_to_metadata, fout)
                 os.replace(tmp_idx, index_path)
                 os.replace(tmp_meta, self.meta_file)
 
@@ -332,7 +352,7 @@ class IVFPQIndexer(object):
         tmp_meta = self.meta_file + ".tmp"
         faiss.write_index(index, tmp_idx)
         with open(tmp_meta, 'wb') as fout:
-            np.save(fout, np.array(self.index_id_to_file_id, dtype=np.int32))
+            pickle.dump(self.custom_id_to_metadata, fout)
             try:
                 import os
                 fout.flush()
@@ -348,7 +368,7 @@ class IVFPQIndexer(object):
         # return None
     
     def build_passage_pos_id_array(self, ):
-        convert_pkl_to_jsonl(self.passage_dir)
+        # convert_pkl_to_jsonl(self.passage_dir)
         passage_pos_ids, passage_filenames = get_passage_pos_ids(self.passage_dir, self.pos_array_save_path, 
                                                                  self.passage_filenames_save_path, self.deprioritized_domains)
         return passage_pos_ids, passage_filenames
