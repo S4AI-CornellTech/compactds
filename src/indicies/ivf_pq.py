@@ -319,13 +319,13 @@ class IVFPQIndexer(object):
             ids_for_this_shard = shuffled_ids[global_offset : global_offset + n]
 
             bs = int(self.num_keys_to_add_at_a_time)
-            for s in range(0, n, bs):
-                e = min(s + bs, n)
-                index.add_with_ids(to_add[s:e], ids_for_this_shard[s:e])
+            # for s in range(0, n, bs):
+            #     e = min(s + bs, n)
+            #     index.add_with_ids(to_add[s:e], ids_for_this_shard[s:e])
 
-                for i in range(s, e):
-                    custom_id = ids_for_this_shard[i]
-                    self.custom_id_to_metadata[int(custom_id)] = (shard_id, i)
+            #     for i in range(s, e):
+            #         custom_id = ids_for_this_shard[i]
+            #         self.custom_id_to_metadata[int(custom_id)] = (shard_id, i)
             
             global_offset += n
             
@@ -351,17 +351,17 @@ class IVFPQIndexer(object):
         tmp_idx  = index_path + ".tmp"
         tmp_meta = self.meta_file + ".tmp"
         faiss.write_index(index, tmp_idx)
-        with open(tmp_meta, 'wb') as fout:
-            pickle.dump(self.custom_id_to_metadata, fout)
-            try:
-                import os
-                fout.flush()
-                os.fsync(fout.fileno())
-            except Exception:
-                pass
+        # with open(tmp_meta, 'wb') as fout:
+        #     pickle.dump(self.custom_id_to_metadata, fout)
+        #     try:
+        #         import os
+        #         fout.flush()
+        #         os.fsync(fout.fileno())
+        #     except Exception:
+        #         pass
 
         os.replace(tmp_idx, index_path)
-        os.replace(tmp_meta, self.meta_file)
+        # os.replace(tmp_meta, self.meta_file)
         print(f"Final index written to {index_path}")
         print ('Adding took {} s'.format(time.time() - start_time))
         return index
