@@ -1,16 +1,23 @@
-import json
-import re
-import os
-import glob
+import json, re, os, glob
 from typing import List
 
 # Settings
-INPUT_DIR    = "output/retrieved_results/_IVFPQ.65536.64.512/"
-OUTPUT_DIR   = "output/retrieved_results/_IVFPQ.65536.64.512/converted"
-TOP_K_CTXS   =  5
-PREFIX = "triviaqa::olmes_q_retrieved_results_::"
+INPUT_DIR    = "output/retrieved_results/_IVFPQ.65536.256.256/mmlu"
+OUTPUT_DIR   = os.path.join(INPUT_DIR, "converted")
+TOP_K_CTXS   = 5
 
-# Utils
+# Regex to match filenames with various "mc" replacements
+MC_SLOT_RE = re.compile(
+    r'^mmlu_.*(?:'
+    r':mc::'
+    r'|_mc_'
+    r'|-mc-'
+    r'|\.mc\.'
+    r'|：mc：：'
+    r'| mc '
+    r')retrieval_q_retrieved_results\.jsonl$'
+)
+
 def to_plaintext(s: str) -> str:
     if s is None:
         return ""
@@ -27,13 +34,10 @@ def get_retrieval_text(item: dict) -> str:
 def convert_one_file(in_path: str, out_path: str, top_k_ctxs=TOP_K_CTXS) -> int:
     count = 0
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
-
     with open(in_path, "r", encoding="utf-8") as fin, \
          open(out_path, "w", encoding="utf-8") as fout:
-
         fout.write("{\n")
         first = True
-
         for line in fin:
             line = line.strip()
             if not line:
@@ -65,32 +69,31 @@ def convert_one_file(in_path: str, out_path: str, top_k_ctxs=TOP_K_CTXS) -> int:
             first = False
             fout.write(f'  "{key}": ')
             fout.write(json.dumps(concat_text, ensure_ascii=False))
-
         fout.write("\n}\n")
-
     return count
 
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    in_files: List[str] = sorted(glob.glob(os.path.join(INPUT_DIR, "**", "*.jsonl"), recursive=True))
+    pattern = os.path.join(INPUT_DIR, "mmlu_*retrieval_q_retrieved_results.jsonl")
+    candidates: List[str] = sorted(glob.glob(pattern))
+    in_files: List[str] = [p for p in candidates if MC_SLOT_RE.search(os.path.basename(p))]
+
     if not in_files:
-        print(f"No .jsonl files found in: {INPUT_DIR}")
+        print(f"No files matched regex under: {INPUT_DIR}")
+        print("Here are nearby candidates we saw (first 20):")
+        for p in candidates[:20]:
+            print(" -", os.path.basename(p))
         return
 
     total_files = 0
     total_items = 0
 
     for in_path in in_files:
-        parent_folder = os.path.basename(os.path.dirname(in_path))
-        out_name = f"{PREFIX}{parent_folder}.{TOP_K_CTXS}.json"
+        base_name = os.path.basename(in_path)
+        base_name = base_name.replace("_mc_", ":mc::")
+        out_name = os.path.splitext(base_name)[0] + ".json"
         out_path = os.path.join(OUTPUT_DIR, out_name)
-
-        i = 2
-        while os.path.exists(out_path):
-            out_name = f"{PREFIX}{parent_folder}.{TOP_K_CTXS}-{i}.json"
-            out_path = os.path.join(OUTPUT_DIR, out_name)
-            i += 1
 
         n = convert_one_file(in_path, out_path, TOP_K_CTXS)
         total_files += 1
