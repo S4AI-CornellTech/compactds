@@ -27,13 +27,17 @@ class Indexer(object):
             formatted_index_name = f"index_{self.index_type}.{self.args.sample_train_size}.{self.args.projection_size}.{self.args.ncentroids}.faiss"
             if "PQ" in self.index_type:
                 formatted_index_name = formatted_index_name.replace(".faiss", f".{self.args.n_subquantizers}.faiss")
-            trained_index_path = os.path.join(index_dir, formatted_index_name+'.trained')
+            trained_index_path = "/share5/akiho.kawada/compactds/datastores/compactds/embeddings/index_IVFPQ/index_IVFPQ.100000000.768.65536.256.faiss.trained"
         else:
             formatted_index_name = f"index_{self.index_type}.faiss"
-        index_path = os.path.join(index_dir, formatted_index_name)
-        meta_file = os.path.join(index_dir, formatted_index_name+'.meta')
-        pos_array_save_path = os.path.join(index_dir, 'passage_pos_id_array.npy')
-        passage_filenames_save_path = os.path.join(index_dir, 'passage_filenames.npy')
+        # index_path = os.path.join(index_dir, formatted_index_name)
+        index_path = "/share5/akiho.kawada/compactds/random-compactds/toy/index_IVFPQ.100000000.768.65536.256.s0_e5.faiss"
+        # meta_file = os.path.join(index_dir, formatted_index_name+'.meta')
+        meta_file = "/share5/akiho.kawada/compactds/random-compactds/toy/index_IVFPQ.100000000.768.65536.256.faiss.s0_e5.meta"
+        # pos_array_save_path = os.path.join(index_dir, 'passage_pos_id_array.npy')
+        pos_array_save_path = "passage_pos_id_array.s0_e5.npy"
+        # passage_filenames_save_path = os.path.join(index_dir, 'passage_filenames.npy')
+        passage_filenames_save_path = "passage_filenames.s0_e5.npy"
 
         sample_train_path = self.args.sample_train_path if "sample_train_path" in self.args else None
         save_intermediate_index = self.args.save_intermediate_index if "save_intermediate_index" in self.args else False
@@ -64,11 +68,13 @@ class Indexer(object):
                 probe=self.args.probe,
             )
         elif self.index_type == "IVFPQ":
+            shuffled_ids_path = "shuffled_ids_0_5.npy"
             self.datastore = IVFPQIndexer(
                 embed_paths=embedding_paths,
                 index_path=index_path,
                 meta_file=meta_file,
                 trained_index_path=trained_index_path,
+                shuffled_ids_path=shuffled_ids_path,
                 passage_dir=passage_dir,
                 deprioritized_domains=deprioritized_domains,
                 pos_array_save_path=pos_array_save_path,
@@ -88,7 +94,12 @@ class Indexer(object):
         
         
     def search(self, query_embs, k=5):
-        all_scores, all_domains, all_passages, db_ids = self.datastore.search(query_embs, k)
+        search_id_range_min = 0
+        search_id_range_max = 100000000
+        if self.index_type == "IVFPQ":
+            all_scores, all_domains, all_passages, db_ids = self.datastore.search(query_embs, k, id_range_min=search_id_range_min, id_range_max=search_id_range_max)
+        else:
+            all_scores, all_domains, all_passages, db_ids = self.datastore.search(query_embs, k)
         return all_scores, all_domains, all_passages, db_ids
     
     def add_to(self):

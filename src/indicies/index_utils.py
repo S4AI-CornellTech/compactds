@@ -111,7 +111,8 @@ def convert_pkl_to_jsonl(passage_dir):
                 f.write('\n')
     print("All pickle files have been converted to JSONL files.")
 
-def get_passage_pos_ids(passage_dir, pos_array_save_path, filenames_save_path, deprioritized_domains=[]):
+def get_passage_pos_ids(passage_dir, pos_array_save_path, filenames_save_path, deprioritized_domains=[], 
+                        start_shard=None, end_shard=None):
     if os.path.isdir(passage_dir):
         print(f"Generating id2pos for {passage_dir}")
         filenames = os.listdir(passage_dir)
@@ -127,29 +128,34 @@ def get_passage_pos_ids(passage_dir, pos_array_save_path, filenames_save_path, d
             else:
                 depriortized = deprioritized_domains_index[domain]
             return depriortized, domain, int(rank), int(shard_idx)
-        jsonl_files = sorted(
+        sorted_jsonl_files = sorted(
             jsonl_files,
             key=sort_func)
-        print("DEBUG: Sorted JSONL files:")
-        print("\n".join(jsonl_files))
+        if start_shard is not None or end_shard is not None:
+            print(f"Slicing files from index {start_shard} to {end_shard}")
+            files_to_process = sorted_jsonl_files[start_shard:end_shard]
+        else:
+            files_to_process = sorted_jsonl_files # start/endがなければ全件処理
+                
+        print(f"Processing {len(files_to_process)} files.")
 
-        pos_id_array = []
+        all_shard_positions = []
         file_names = []
         total = 0
-        for shard_id, filename in enumerate(tqdm(jsonl_files)):
+        for shard_id, filename in enumerate(tqdm(files_to_process)):
             file_names.append(filename)
             file_path = os.path.join(passage_dir, filename)
+
+            positions_for_this_shard = []
             
             with open(file_path, 'r') as file:
                 position = file.tell()
                 line = file.readline()
-                doc_id = 0
                 while line:
-                    pos_id_array.append(position)
-                    doc_id += 1
+                    positions_for_this_shard.append(position)
                     position = file.tell()
                     line = file.readline()
-            total += doc_id - 1
+            all_shard_positions.append(np.array(positions_for_this_shard, dtype=np.int64))
 
     elif os.path.isfile(passage_dir):
         # NOTE: deprecated feature, will be removed in future release.
@@ -176,7 +182,7 @@ def get_passage_pos_ids(passage_dir, pos_array_save_path, filenames_save_path, d
     # Save the output array to a pickle file
     if pos_array_save_path is not None:
         with open(pos_array_save_path, 'wb') as f:
-            np.save(f, np.array(pos_id_array, dtype=np.int64))
+            np.save(f, np.array(all_shard_positions, dtype=object))
         print(f"Output array saved to {pos_array_save_path}")
 
     # Save the output filenames to a pickle file
@@ -185,7 +191,7 @@ def get_passage_pos_ids(passage_dir, pos_array_save_path, filenames_save_path, d
             np.save(f, np.array(file_names, dtype=object))
         print(f"Output filenames saved to {filenames_save_path}")
 
-    return pos_id_array, file_names
+    return all_shard_positions, file_names
 
 
 if __name__ == '__main__':
