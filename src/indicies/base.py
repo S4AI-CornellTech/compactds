@@ -93,9 +93,7 @@ class Indexer(object):
             raise NotImplementedError
         
         
-    def search(self, query_embs, k=5):
-        search_id_range_min = 0
-        search_id_range_max = 100000000
+    def search(self, query_embs, k=5, search_id_range_min=None, search_id_range_max=None):
         if self.index_type == "IVFPQ":
             all_scores, all_domains, all_passages, db_ids = self.datastore.search(query_embs, k, id_range_min=search_id_range_min, id_range_max=search_id_range_max)
         else:

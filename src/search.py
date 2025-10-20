@@ -344,14 +344,20 @@ def search_dense_topk(cfg):
         index = Indexer(cfg)
 
         logging.info("Searching for the queries...")
-        all_scores, all_domains, all_passages, db_ids = index.search(questions_embedding, eval_args.search.n_docs)
-        
-        # todo: double check valid_query_idx
-        logging.info(f"Adding documents to eval data...")
-        add_passages_to_eval_data(data, all_domains, all_passages, all_scores, db_ids, valid_query_idx, domain=ds_domain)
-        
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        safe_write_jsonl(data, output_path)
+        list_search_id_range = [(0, 10000000), (0, 500000000), (0, 1000000000)]  # 10M, 500M, 1B
+        for search_id_range_min, search_id_range_max in list_search_id_range:
+            print("--------------------------------")
+            print(f"Searching with id range: {search_id_range_min} to {search_id_range_max}")
+            all_scores, all_domains, all_passages, db_ids = index.search(questions_embedding, eval_args.search.n_docs, search_id_range_min=search_id_range_min, search_id_range_max=search_id_range_max)
+            
+            # todo: double check valid_query_idx
+            logging.info(f"Adding documents to eval data...")
+            add_passages_to_eval_data(data, all_domains, all_passages, all_scores, db_ids, valid_query_idx, domain=ds_domain)
+            
+            base, ext = os.path.splitext(output_path)
+            output_path = f"{base}.idrange_{search_id_range_min}_{search_id_range_max}{ext}"
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            safe_write_jsonl(data, output_path)
 
 def subsample_by_coin_flip(items, probability):
     subsampled_list = []
