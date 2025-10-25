@@ -403,9 +403,9 @@ class IVFPQIndexer(object):
 
     def _get_passage(self, custom_id):
         if custom_id not in self.custom_id_to_metadata:
-            # return {"text": "Passage not found for this ID."}
-            print(f"custom_id {custom_id} not found in metadata.")
-            raise ValueError("Passage not found for this ID.")
+            print(f"[ERROR!!!!] custom_id: {custom_id} not found in metadata.")
+            # raise ValueError("Passage not found for this ID.")
+            return {"text": "Passage not found for this ID."}
         shard_id, local_index = self.custom_id_to_metadata[custom_id]
 
         filename = self.passage_filenames[shard_id]
