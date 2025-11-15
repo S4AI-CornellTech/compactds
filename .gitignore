@@ -10,3 +10,4 @@ lm_eval.egg-info/
 internal/
 datastores/
 tmp.sh
+output/

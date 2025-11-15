@@ -52,7 +52,7 @@ class IVFPQIndexer(object):
             return f"{root}.s{s}_e{e-1}{ext}"  # end is exclusive, so we denote e-1 in the filename
         
         self.manual_start = 0
-        self.manual_end   = 6
+        self.manual_end   = 2
         self._all_embed_paths = list(embed_paths)
         if self.manual_start is not None or self.manual_end is not None:
             print(f"Using manual range for shards: start={self.manual_start}, end={self.manual_end}")
@@ -65,11 +65,17 @@ class IVFPQIndexer(object):
             print(f"Index path: {index_path}")
             print(f"Meta file: {meta_file}")
             print(f"Trained index path: {trained_index_path}")
+
+            if pos_array_save_path is not None:
+                pos_array_save_path = _with_range_suffix(pos_array_save_path, s, e)
+            if passage_filenames_save_path is not None:
+                passage_filenames_save_path = _with_range_suffix(passage_filenames_save_path, s, e)
+
         
-        if pos_array_save_path is not None:
-            pos_array_save_path = _with_range_suffix(pos_array_save_path, s, e)
-        if passage_filenames_save_path is not None:
-            passage_filenames_save_path = _with_range_suffix(passage_filenames_save_path, s, e)
+        # if pos_array_save_path is not None:
+        #     pos_array_save_path = _with_range_suffix(pos_array_save_path, s, e)
+        # if passage_filenames_save_path is not None:
+        #     passage_filenames_save_path = _with_range_suffix(passage_filenames_save_path, s, e)
     
         self.embed_paths = embed_paths  # list of paths where saved the embedding of all shards
         self.index_path = index_path  # path to store the final index
@@ -348,9 +354,10 @@ class IVFPQIndexer(object):
         # return None
     
     def build_passage_pos_id_array(self, ):
-        convert_pkl_to_jsonl(self.passage_dir)
+        # convert_pkl_to_jsonl(self.passage_dir)
         passage_pos_ids, passage_filenames = get_passage_pos_ids(self.passage_dir, self.pos_array_save_path, 
-                                                                 self.passage_filenames_save_path, self.deprioritized_domains)
+                                                                 self.passage_filenames_save_path, self.deprioritized_domains,
+                                                                 start_shard=self.manual_start, end_shard=self.manual_end)
         return passage_pos_ids, passage_filenames
 
     def load_psg_pos_id_array(self,):
