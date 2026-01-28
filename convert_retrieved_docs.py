@@ -1,12 +1,9 @@
 import json
 import re
 import os
+import argparse
 
-# ===== Settings =====
-INPUT_JSONL = "results/retrieved_results/_IVFPQ.65536.64.1/triviaqa::olmes_q_retrieved_results.jsonl"
-OUTPUT_JSON = "results/retrieved_results/_IVFPQ.65536.64.1/triviaqa::olmes_q_retrieved_results::_IVFPQ.65536.64.1.k5.json"
-TOP_K_CTXS  = 5
-# ======================
+TOP_K_CTXS = 5
 
 def to_plaintext(s: str) -> str:
     if s is None:
@@ -70,8 +67,32 @@ def convert_one_file(in_path: str, out_path: str, top_k_ctxs=TOP_K_CTXS) -> int:
     return count
 
 def main():
-    n = convert_one_file(INPUT_JSONL, OUTPUT_JSON, TOP_K_CTXS)
-    print(f"[OK] {INPUT_JSONL} -> {OUTPUT_JSON} ({n} items)")
+
+    parser = argparse.ArgumentParser(description="Convert retrieved docs in a folder to plaintext JSON format.")
+    parser.add_argument("input_folder", type=str, help="Input folder containing .json files")
+    parser.add_argument("output_folder", type=str, help="Output folder for converted .json files")
+    args = parser.parse_args()
+
+    os.makedirs(args.output_folder, exist_ok=True)
+    input_files = [f for f in os.listdir(args.input_folder) if f.endswith('.json')]
+    if not input_files:
+        print(f"No .json files found in {args.input_folder}")
+        return
+
+    k_pattern = re.compile(r'_k_(\d+)_retrieved_doc_ids')
+    for fname in input_files:
+        in_path = os.path.join(args.input_folder, fname)
+        # Change output name to _retrieved_doc_text.json
+        if fname.endswith('_retrieved_doc_ids.json'):
+            out_name = fname.replace('_retrieved_doc_ids.json', '_retrieved_doc_text.json')
+        else:
+            out_name = os.path.splitext(fname)[0] + "_retrieved_doc_text.json"
+        out_path = os.path.join(args.output_folder, out_name)
+        # Extract k from filename (required)
+        match = k_pattern.search(fname)
+        top_k_ctxs = int(match.group(1))
+        n = convert_one_file(in_path, out_path, top_k_ctxs)
+        print(f"[OK] {in_path} -> {out_path} (k={top_k_ctxs}, {n} items)")
 
 if __name__ == "__main__":
     main()
