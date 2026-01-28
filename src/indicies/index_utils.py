@@ -24,8 +24,9 @@ def get_index_dir_and_embedding_paths(cfg, index_shard_ids=None, deprioritized_d
         index_dir = os.path.join(os.path.dirname(embedding_paths[0]), f'index_{index_type}/{index_dir_name}')
         
     else:
-        embedding_paths = glob.glob(index_args.passages_embeddings)
+        embedding_paths = glob.glob(index_args.passages_embeddings, recursive=True)
         print(f"passages_embeddings: {index_args.passages_embeddings}")
+        print("embedding_paths:" , embedding_paths)
         # put some domains to the back
         # ["massiveds-rpj_arxiv", "massiveds-rpj_github", "massiveds-rpj_book", "lb_full"]
         deprioritized_domains_index = {domain: i+1 for i, domain in enumerate(deprioritized_domains)}
@@ -37,12 +38,13 @@ def get_index_dir_and_embedding_paths(cfg, index_shard_ids=None, deprioritized_d
             else:
                 depriortized = deprioritized_domains_index[domain]
             return depriortized, domain, int(rank), int(shard_idx)
-        embedding_paths = sorted(embedding_paths, key=sort_func)
+        embedding_paths = sorted(embedding_paths)
         print("DEBUG: sorted embedding paths:")
         print("\n".join(embedding_paths))
         embedding_paths = embedding_paths if index_args.num_subsampled_embedding_files == -1 else embedding_paths[0:index_args.num_subsampled_embedding_files]
         
-        index_dir = os.path.join(os.path.dirname(embedding_paths[0]), f'index_{index_type}')
+        # index_dir = os.path.join(os.path.dirname(embedding_paths[0]), f'index_{index_type}')
+        index_dir = os.path.dirname(embedding_paths[0])
     
     return index_dir, embedding_paths
 

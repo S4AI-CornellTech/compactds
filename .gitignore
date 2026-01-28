@@ -6,5 +6,7 @@ outputs/
 *.pkl
 lm_eval.egg-info/
 *.jsonl
+*.json
 *.txt
 internal/
+datastores/

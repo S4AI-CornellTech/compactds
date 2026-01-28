@@ -28,7 +28,7 @@ datastore:
   
   embedding:
     raw_data_path: ${datastore.raw_data_path}
-    output_dir: /weka_data/xinxil/private-retrieval-lm/ours_v4_1
+    output_dir: results
     chunk_size: ${datastore.chunk_size}
     keep_last_chunk: true
     passages_dir: /weka_data/xinxil/private-retrieval-lm/upload/passages
@@ -53,7 +53,7 @@ datastore:
   index:
     raw_data_path: ${datastore.raw_data_path}
     chunk_size: ${datastore.chunk_size}
-    passages_embeddings: ${datastore.embedding.embedding_dir}/*.pkl
+    passages_embeddings: ${datastore.embedding.embedding_dir}/**/*.faiss
     num_subsampled_embedding_files: -1    # Number of subsampled embeddings, use all if pass -1, not supported yet, assume use all embeddings in the dir
     index_shard_ids: null
     save_or_load_index: True
