@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PROBES=("64" "128" "256" "512")
+PROBES=("1" "32" "64" "128" "256" "512")
 FILES=$(ls queries/mmlu/*.jsonl | sort)
 
 
