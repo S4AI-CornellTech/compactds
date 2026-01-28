@@ -190,17 +190,19 @@ def get_search_output_path(cfg, index_shard_ids=None):
         output_dir = os.path.join(eval_args.eval_output_dir, shards_postfix)
     else:
         output_dir = eval_args.eval_output_dir
-    
-    index_type = cfg.datastore.index.index_type
-    if "IVF" in index_type:
-        postfix = f"_{index_type}.{cfg.datastore.index.ncentroids}"
-        if "PQ" in index_type:
-            postfix = f"{postfix}.{cfg.datastore.index.n_subquantizers}"
-        postfix = f"{postfix}.{cfg.datastore.index.probe}"
-    else:
-        postfix = ""
 
-    output_path = os.path.join(output_dir + postfix, os.path.basename(eval_args.data.eval_data).replace('.jsonl', '_retrieved_results.jsonl'))
+    index_type = cfg.datastore.index.index_type
+    nprobe = getattr(cfg.datastore.index, 'probe', 'unknown')
+    n_docs = getattr(eval_args.search, 'n_docs', 'unknown')
+    # Extract task name from eval_data file
+    eval_data_base = os.path.basename(eval_args.data.eval_data)
+    if '::' in eval_data_base:
+        task = eval_data_base.split('::')[0]
+    else:
+        task = os.path.splitext(eval_data_base)[0]
+
+    filename = f"{task}_compactds_np_{nprobe}_k_{n_docs}_retrieved_doc_ids.json"
+    output_path = os.path.join(output_dir, filename)
     return output_path
 
 
