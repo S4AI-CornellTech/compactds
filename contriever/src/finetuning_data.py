@@ -135,7 +135,7 @@ class Collator(object):
         negs = [item for ex in batch for item in ex["negatives"]]
         allpassages = golds + negs
 
-        qout = self.tokenizer.batch_encode_plus(
+        qout = self.tokenizer(
             queries,
             max_length=self.passage_maxlength,
             truncation=True,
@@ -143,7 +143,7 @@ class Collator(object):
             add_special_tokens=True,
             return_tensors="pt",
         )
-        kout = self.tokenizer.batch_encode_plus(
+        kout = self.tokenizer(
             allpassages,
             max_length=self.passage_maxlength,
             truncation=True,

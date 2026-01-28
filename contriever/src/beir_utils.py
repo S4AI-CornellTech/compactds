@@ -63,7 +63,7 @@ class DenseEncoderModel:
                 start_idx = k * batch_size
                 end_idx = min((k + 1) * batch_size, len(queries))
 
-                qencode = self.tokenizer.batch_encode_plus(
+                qencode = self.tokenizer(
                     queries[start_idx:end_idx],
                     max_length=self.max_length,
                     padding=True,
@@ -102,7 +102,7 @@ class DenseEncoderModel:
                 start_idx = k * batch_size
                 end_idx = min((k + 1) * batch_size, len(corpus))
 
-                cencode = self.tokenizer.batch_encode_plus(
+                cencode = self.tokenizer(
                     corpus[start_idx:end_idx],
                     max_length=self.max_length,
                     padding=True,

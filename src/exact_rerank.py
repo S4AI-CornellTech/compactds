@@ -57,7 +57,7 @@ def embed_queries(args, queries, model, tokenizer, model_name_or_path, cached_em
                 batch_question.append(q)
 
                 if len(batch_question) == args.per_gpu_batch_size or k == len(queries) - 1:
-                    encoded_batch = tokenizer.batch_encode_plus(
+                    encoded_batch = tokenizer(
                         batch_question,
                         return_tensors="pt",
                         max_length=args.question_maxlength,
@@ -106,7 +106,7 @@ def embed_queries(args, queries, model, tokenizer, model_name_or_path, cached_em
 
                 if len(batch_question) == args.per_gpu_batch_size or k == len(queries) - 1:
 
-                    encoded_batch = tokenizer.batch_encode_plus(
+                    encoded_batch = tokenizer(
                         batch_question,
                         return_tensors="pt",
                         max_length=args.question_maxlength,

@@ -24,12 +24,12 @@ def apply_tokenizer(path, tokenizer, normalize_text=False):
 
             lines.append(line)
             if len(lines) > 1000000:
-                tokens = tokenizer.batch_encode_plus(lines, add_special_tokens=False)['input_ids']
+                tokens = tokenizer(lines, add_special_tokens=False)['input_ids']
                 tokens = [torch.tensor(x, dtype=torch.int) for x in tokens]
                 alltokens.extend(tokens)
                 lines = []
 
-    tokens = tokenizer.batch_encode_plus(lines, add_special_tokens=False)['input_ids']
+    tokens = tokenizer(lines, add_special_tokens=False)['input_ids']
     tokens = [torch.tensor(x, dtype=torch.int) for x in tokens]
     alltokens.extend(tokens)
 

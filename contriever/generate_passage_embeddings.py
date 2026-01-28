@@ -42,7 +42,7 @@ def embed_passages(args, passages, model, tokenizer):
 
             if len(batch_text) == args.per_gpu_batch_size or k == len(passages) - 1:
 
-                encoded_batch = tokenizer.batch_encode_plus(
+                encoded_batch = tokenizer(
                     batch_text,
                     return_tensors="pt",
                     max_length=args.passage_maxlength,
