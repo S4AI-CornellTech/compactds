@@ -1,17 +1,18 @@
 #!/bin/bash
 
-if [ "$#" -ne 4 ]; then
-  echo "Usage: bash $0 compactds_base_path output_dir \"nprobe_list\" \"n_docs_list\""
-  echo "Example: bash $0 /path/to/compactds /path/to/output_dir \"1 32 64 128 256 512\" \"5 10 20 50\""
+if [ "$#" -ne 5 ]; then
+  echo "Usage: bash $0 compactds_base_path queries_path output_dir \"nprobe_list\" \"n_docs_list\""
+  echo "Example: bash $0 /path/to/compactds /path/to/queries /path/to/output_dir \"1 32 64 128 256 512\" \"5 10 20 50\""
   exit 1
 fi
 
 compactds_base_path="$1"
-output_dir="$2"
-read -a nprobe_list <<< "$3"
-read -a n_docs_list <<< "$4"
+queries_path="$2"
+output_dir="$3"
+read -a nprobe_list <<< "$4"
+read -a n_docs_list <<< "$5"
 
-FILES=$(ls queries/mmlu/*.jsonl | sort)
+FILES=$(ls "$queries_path"/mmlu/*.jsonl | sort)
 
 for p in "${nprobe_list[@]}"; do
   echo "==== Starting runs for probe=$p ===="

@@ -154,7 +154,7 @@ def get_search_output_path(cfg, index_shard_ids=None):
     else:
         task = os.path.splitext(eval_data_base)[0]
 
-    filename = f"{task}_compactds_np_{nprobe}_k_{n_docs}_retrieved_doc_ids.json"
+    filename = f"{task}_compactds_ivf_pq64_d_768_1_9b_np_{nprobe}_k_{n_docs}_retrieved_doc_ids.json"
     output_path = os.path.join(output_dir, filename)
     return output_path
 
