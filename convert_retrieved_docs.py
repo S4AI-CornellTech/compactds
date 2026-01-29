@@ -69,25 +69,25 @@ def convert_one_file(in_path: str, out_path: str, top_k_ctxs=TOP_K_CTXS) -> int:
 def main():
 
     parser = argparse.ArgumentParser(description="Convert retrieved docs in a folder to plaintext JSON format.")
-    parser.add_argument("input_folder", type=str, help="Input folder containing .json files")
-    parser.add_argument("output_folder", type=str, help="Output folder for converted .json files")
+    parser.add_argument("--input-dir", type=str, help="Input folder containing .json files")
+    parser.add_argument("--output-dir", type=str, help="Output folder for converted .json files")
     args = parser.parse_args()
 
-    os.makedirs(args.output_folder, exist_ok=True)
-    input_files = [f for f in os.listdir(args.input_folder) if f.endswith('.json')]
+    os.makedirs(args.output_dir, exist_ok=True)
+    input_files = [f for f in os.listdir(args.input_dir) if f.endswith('.json')]
     if not input_files:
-        print(f"No .json files found in {args.input_folder}")
+        print(f"No .json files found in {args.input_dir}")
         return
 
     k_pattern = re.compile(r'_k_(\d+)_retrieved_doc_ids')
     for fname in input_files:
-        in_path = os.path.join(args.input_folder, fname)
+        in_path = os.path.join(args.input_dir, fname)
         # Change output name to _retrieved_doc_text.json
         if fname.endswith('_retrieved_doc_ids.json'):
             out_name = fname.replace('_retrieved_doc_ids.json', '_retrieved_doc_text.json')
         else:
             out_name = os.path.splitext(fname)[0] + "_retrieved_doc_text.json"
-        out_path = os.path.join(args.output_folder, out_name)
+        out_path = os.path.join(args.output_dir, out_name)
         # Extract k from filename (required)
         match = k_pattern.search(fname)
         top_k_ctxs = int(match.group(1))
